@@ -12,23 +12,16 @@ import {
 import {IRoomConfig} from "./src/RoomComponent/types";
 import {Socket} from "socket.io-client";
 import {IRoomMember} from "@/types/room";
-import {
-  disposeViewerLoader,
-  modelLoadingSignal,
-  spinnerSignal,
-} from "@bim/signals/loader";
-import {setNotify} from "@components/Notify/baseNotify";
+import {spinnerSignal} from "@bim/signals/loader";
 import {effect} from "@preact/signals-react";
 import {
   cameraModeSignal,
-  disposeViewerConfig,
   disposeViewerSignals,
   mapBoxSignal,
   shadowSceneSignal,
 } from "@bim/signals";
 
 import {Fragment} from "@thatopen/fragments";
-import {IModelTree} from "./types";
 import * as BUI from "@thatopen/ui";
 import selection from "./Selection";
 /**
@@ -201,7 +194,7 @@ export class BimModel implements OBC.Disposable {
       }
     });
     this.selectionPanel = selection(this.components);
-    this.selectionPanel.className = "absolute top-3 right-3 z-10 ";
+    this.selectionPanel.className = "absolute top-3 left-3 z-10 bg-black";
     effect(() => {
       this.mapBox = mapBoxSignal.value;
     });
@@ -223,43 +216,12 @@ export class BimModel implements OBC.Disposable {
     });
   }
 
-  loadModelFromLocal = async () => {
-    try {
-      modelLoadingSignal.value = true;
-
-      const options: OpenFilePickerOptions = {
-        multiple: false,
-        types: [
-          {
-            description: "Files",
-            accept: {
-              "application/octet-stream": [".ifc", ".IFC", ".dxf"],
-            },
-          },
-        ],
-      };
-
-      const [fileHandle] = await window.showOpenFilePicker(options);
-      const file = await fileHandle.getFile();
-      const ifcTilerComponent = this.components.get(IfcTilerComponent);
-      this.loaderProgress.loadIfcFile(
-        file,
-        async (buffer: Uint8Array, name: string) => {
-          await ifcTilerComponent.streamIfcWorkerFile(buffer, name);
-        }
-      );
-    } catch (err: any) {
-      setNotify(err.message, false);
-    }
-  };
   loadModelFromServer = async (modelId: string, projectId: string) => {
     await this.components
       .get(IfcTilerComponent)
       .streamFromServer(modelId, projectId);
   };
-  uploadServer = async (token: string, projectId: string) => {
-    await this.components.get(IfcTilerComponent).uploadServer(token, projectId);
-  };
+
   initRoom(config: IRoomConfig, socket: Socket, me: IRoomMember) {
     this.components.get(RoomComponent).init(config, socket, me);
   }

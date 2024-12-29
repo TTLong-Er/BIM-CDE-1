@@ -1,3 +1,5 @@
+import {ISpatialStructure} from "@bim/types";
+
 export interface IPayloadParser {
   buffer: Uint8Array;
   modelId: string;

@@ -30,25 +30,19 @@ route.post("", async (req: Request, res: Response, next: NextFunction) => {
 
     const userId = evt.data.user_id;
 
-    const sessionId = evt.data.id;
-
     if (!type || !whType.has(type))
       return next({statusCode: 403, message: "can not find event"});
     if (type === "session.removed") {
-      await redisClient.del(sessionId);
+      await redisClient.del(userId);
     } else if (type === "user.deleted") {
       ///
     } else {
       const userProjects = await getUserInfo(userId);
 
-      await redisClient.set(
-        sessionId,
-        JSON.stringify(userProjects),
-        configRedis
-      );
+      await redisClient.set(userId, JSON.stringify(userProjects), configRedis);
     }
 
-    res.status(200).json(sessionId);
+    res.status(200).json(userId);
   } catch (error) {
     console.log(error);
     next(error);

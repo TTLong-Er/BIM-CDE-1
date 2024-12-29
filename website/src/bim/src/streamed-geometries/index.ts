@@ -1,17 +1,19 @@
 import * as flatbuffers from "flatbuffers";
 import {StreamedGeometries} from "./streamed-geometries";
 import {StreamedGeometry} from "./streamed-geometry";
+import * as fflate from "fflate";
 /**
  *
  */
 export class StreamSerializer {
-  import(bytes: Uint8Array): Map<
+  import(data: Uint8Array): Map<
     number,
     {
       position: Float32Array;
       index: Uint32Array;
     }
   > {
+    const bytes = fflate.decompressSync(new Uint8Array(data));
     const buffer = new flatbuffers.ByteBuffer(bytes);
 
     const fbGeoms = StreamedGeometries.getRootAsStreamedGeometries(buffer);

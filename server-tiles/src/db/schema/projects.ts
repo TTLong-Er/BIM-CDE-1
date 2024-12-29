@@ -1,6 +1,6 @@
 import {relations, sql} from "drizzle-orm";
 
-import {varchar, pgTable, uuid, index} from "drizzle-orm/pg-core";
+import {varchar, pgTable, uuid, index, timestamp} from "drizzle-orm/pg-core";
 import {models} from "./models";
 
 /**
@@ -15,11 +15,15 @@ export const projects = pgTable(
     name: varchar("name", {length: 255}).notNull(),
     address: varchar("address", {length: 255}),
     userId: varchar("user_id", {length: 255}).notNull(),
+    createdAt: timestamp("created_at")
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
   },
   (t) => ({
     userIdx: index("user_id_idx").on(t.userId),
   })
 );
+
 /**
  *
  */

@@ -7,6 +7,7 @@ import {projectSignal} from "@bim/signals/project";
 import {setNotify} from "@components/Notify/baseNotify";
 import {IProject} from "@bim/types";
 import {useNavigate} from "react-router-dom";
+import {registerNotifications} from "@stores/notifications";
 const PrivateLayout = () => {
   const {getToken, isSignedIn} = useAuth();
   const navigate = useNavigate();
@@ -18,18 +19,19 @@ const PrivateLayout = () => {
     (async () => {
       try {
         const token = await getToken();
+        // const subscription = await registerNotifications();
         const res = await getListProject(token!);
-        console.log(res.data.projects);
         projectSignal.value = res.data.projects.map((pro) => ({
           id: pro.id,
           name: pro.name,
+          createAt: pro.createAt,
           models: pro.models ?? [],
         })) as IProject[];
       } catch (error: any) {
         setNotify(error.message, false);
       }
     })();
-  }, [getToken, navigate]);
+  }, [getToken, isSignedIn]);
   return (
     <div className="relative h-full w-full  flex flex-col">
       <div className="relative h-16 w-full px-8 border-b-4">

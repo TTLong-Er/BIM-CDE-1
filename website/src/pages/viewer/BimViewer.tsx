@@ -19,98 +19,96 @@ import {
   propertyLoaderSignal,
   bimRouteSignal,
   projectSignal,
-  selectProjectSignal,
+  modelLoadedSignal,
 } from "@bim/signals";
 
 import * as BUI from "@thatopen/ui";
+import {useAuth} from "@clerk/clerk-react";
+import {setNotify} from "@components/Notify/baseNotify";
 /**
  *
  * @returns
  */
 const BimViewer = () => {
   useSignals();
+
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const modelId = searchParams.get("modelId");
   const projectId = searchParams.get("projectId");
-  const privateProject = searchParams.get("private");
-  const isPreviewParams = searchParams.get("preview");
 
-  const isPreview = isPreviewParams ? Boolean(isPreviewParams) : false;
   const [bimModel, setBimModel] = useState<BimModel | null>(null);
+
   useEffect(() => {
-    if (!projectId) {
+    if (!containerRef.current) return;
+    if (!projectId || !modelId || !projectSignal.value) {
+      navigate("/Error");
+      return;
+    }
+    const project = projectSignal.value.find((pro) => pro.id === projectId);
+    if (!project) {
       navigate("/Error");
       return;
     }
 
-    if (!containerRef.current) return;
     BUI.Manager.init();
     const model = new BimModel(containerRef.current);
     containerRef.current.appendChild(model.selectionPanel);
-    setBimModel(model);
     bimRouteSignal.value = true;
-    if (projectSignal.value) {
-      const project =
-        projectSignal.value.find((pro) => pro.id === projectId) || null;
-      if (project) {
-        selectProjectSignal.value = {
-          ...project,
-          models: isPreview
-            ? []
-            : project.models.map((model) => ({
-                id: model.id,
-                name: model.name,
-                generated: true,
-                checked: false,
-                isLoaded: false,
-              })),
-        };
-      }
-    }
+    (async () => {
+      await model.loadModelFromServer(modelId, projectId);
+    })();
+    setBimModel(model);
+    setTimeout(model.onResize, 1);
 
-    if (navigator.storage && navigator.storage.estimate) {
-      navigator.storage.estimate().then((estimate: StorageEstimate) => {
-        const {usage, quota} = estimate;
-        if (!usage || !quota) return;
-      });
-    }
     return () => {
       model?.dispose();
       setBimModel(null);
     };
-  }, [projectId]);
+  }, [modelId, projectId]);
 
   const onResize = () => {
     if (!bimModel) return;
     setTimeout(bimModel.onResize, 1);
   };
+
   return (
-    <ResizablePanelGroup
-      direction="horizontal"
-      className="relative h-full w-full overflow-hidden flex"
-      onLayout={onResize}
-    >
-      <ResizablePanel
-        defaultSize={15}
-        maxSize={25}
-        className="relative h-full w-[15%] p-2"
+    <>
+      <ResizablePanelGroup
+        direction="horizontal"
+        className="relative h-full w-full overflow-hidden"
+        onLayout={onResize}
       >
-        {bimModel && <LeftPanel bimModel={bimModel} isPreview={isPreview} />}
-      </ResizablePanel>
-      <ResizableHandle className="w-[4px]" />
-      <ResizablePanel defaultSize={85}>
-        <div
-          className="relative h-full flex-1 exclude-theme-change"
-          ref={containerRef}
+        <ResizablePanel
+          defaultSize={15}
+          maxSize={20}
+          minSize={10}
+          className="relative h-full p-2"
         >
-          <Spinner />
-        </div>
-      </ResizablePanel>
+          {/* {bimModel && (
+            <LeftPanel
+              bimModel={bimModel}
+              isPreview={isPreview}
+              handleOpenFile={handleOpenFile}
+            />
+          )} */}
+        </ResizablePanel>
+        <ResizableHandle className="w-[4px]" />
+
+        <ResizablePanel>
+          <div
+            className="relative h-full w-full exclude-theme-change"
+            ref={containerRef}
+          >
+            <Spinner />
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
       <NotifyProgress name="File" signal={fileLoaderSignal} />
       <NotifyProgress name="Geometry" signal={geometryLoaderSignal} />
       <NotifyProgress name="Property" signal={propertyLoaderSignal} />
-    </ResizablePanelGroup>
+    </>
   );
 };
 

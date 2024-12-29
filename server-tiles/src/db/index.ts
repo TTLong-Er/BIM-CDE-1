@@ -2,8 +2,8 @@ import {createClient, SetOptions} from "redis";
 import {createClerkClient} from "@clerk/backend";
 import {drizzle, NodePgDatabase} from "drizzle-orm/node-postgres";
 import {Webhook} from "svix";
-import mongoose from "mongoose";
 import {Client} from "pg";
+import webpush from "web-push";
 import env from "../config/env";
 import * as schema from "./schema";
 import {createClerkExpressWithAuth} from "@clerk/clerk-sdk-node";
@@ -53,8 +53,9 @@ export const svixWh = new Webhook(env.CLERK_WEBHOOK_SECRET_KEY);
 export const dbConnect = async () => {
   await client.connect();
   await redisClient.connect();
-  await mongoose.connect(
-    `mongodb://${env.MONGO_HOST}:${env.MONGO_PORT}/bimtiles`,
-    {connectTimeoutMS: 3000}
+  webpush.setVapidDetails(
+    "mailto:admin@mywebsite.com",
+    env.WEB_PUSH_PUBLIC,
+    env.WEB_PUSH_PRIVATE
   );
 };

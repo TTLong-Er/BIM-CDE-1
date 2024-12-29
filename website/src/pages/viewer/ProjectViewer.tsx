@@ -1,54 +1,56 @@
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
-import ProjectTable from "./project/ProjectTable";
 import {Button} from "@components/ui/button";
 import NewProject from "./project/NewProject";
-import {useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import ProjectContent from "./project/ProjectContent";
-import {SiAirplayvideo} from "react-icons/si";
-import {FaShareFromSquare} from "react-icons/fa6";
-import {MdPreview} from "react-icons/md";
-import {IoCloudUploadOutline} from "react-icons/io5";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {useNavigate} from "react-router";
 import {isBrowser} from "@constants/browser";
 import {IProject} from "@bim/types";
 import {derivativeFile} from "@api/project";
 import {useAuth} from "@clerk/clerk-react";
 import {setNotify} from "@components/Notify/baseNotify";
-const iconClassName = "h-[20px] w-[20px]";
+import {AxiosProgressEvent} from "axios";
+import ProgressUpload from "./project/ProgressUpload";
+import {Socket, io} from "socket.io-client";
+import {socketUrl} from "@api/core";
+
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import ProjectTable from "./project/ProjectTable";
+import {projectSignal} from "@bim/signals";
+import {useSignals} from "@preact/signals-react/runtime";
 
 /**
  *
  * @returns
  */
 const ProjectViewer = () => {
-  const navigate = useNavigate();
-  const {getToken} = useAuth();
+  useSignals();
+  const {getToken, userId} = useAuth();
+
+  const socketRef = useRef<Socket | null>(null);
+
   const [openNewProject, setOpenNewProject] = useState<boolean>(false);
+
+  const [openNewModel, setOpenNewModel] = useState<boolean>(false);
+
+  const [progress, setProgress] = useState<number>(0);
 
   const [selectProject, setSelectProject] = useState<IProject | null>(null);
 
-  const onViewProject = () => {
-    if (!selectProject) return;
-    navigate(`/viewer/bim?projectId=${selectProject.id}&private=true`);
-  };
-  const onPreViewProject = () => {
-    if (!selectProject) return;
-    navigate(
-      `/viewer/bim?projectId=${selectProject.id}&private=true&preview=true`
-    );
+  const onUploadProgress = (progressEvent: AxiosProgressEvent) => {
+    const {total, loaded} = progressEvent;
+    if (!total) return;
+    setProgress((loaded * 100) / total);
+    if (loaded === total) setOpenNewModel(false);
   };
   const onUploadServer = async () => {
     if (!selectProject) return;
 
-    const token = await getToken();
-    if (!token) {
-      setNotify("UnAuthorization!");
+    if (!userId) {
+      setNotify("UnAuthorization!", false);
       return;
     }
 
@@ -60,8 +62,16 @@ const ProjectViewer = () => {
     input.onchange = async (e: any) => {
       const file = e.target.files[0] as File;
       if (!file) return;
-      const res = await derivativeFile(file, selectProject.id, token);
-      console.log(res);
+      setOpenNewModel(true);
+      setProgress(0);
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await derivativeFile(file, selectProject.id, userId, onUploadProgress);
+      } catch (error: any) {
+        setNotify(error.message, false);
+        setOpenNewModel(false);
+        setProgress(0);
+      }
     };
     input.remove();
   };
@@ -81,6 +91,31 @@ const ProjectViewer = () => {
         console.error("Failed to copy: ", err);
       });
   };
+  const handleUpdateModel = (project: any) => {
+    if (!projectSignal.value) return;
+    projectSignal.value = projectSignal.value.map((pro) => {
+      if (pro.id === project.id) {
+        setSelectProject(project);
+        return project;
+      } else return pro;
+    }) as IProject[];
+    setSelectProject(projectSignal.value[0] ?? null);
+  };
+  /**
+   *
+   */
+  useEffect(() => {
+    if (!userId) return;
+    socketRef.current = io(socketUrl, {
+      auth: {credential: userId, type: "project"},
+    });
+    socketRef.current.on("update-model", handleUpdateModel);
+    return () => {
+      socketRef.current!.off("update-model", handleUpdateModel);
+
+      socketRef.current!.disconnect();
+    };
+  }, []);
   return (
     <>
       <div className="relative h-full w-full overflow-hidden flex items-center p-5 bg-orange-300">
@@ -90,67 +125,6 @@ const ProjectViewer = () => {
               <div className="w-full flex justify-between">
                 <h1 className="my-auto">My Document</h1>
                 <div className="flex justify-end gap-2">
-                  {selectProject && (
-                    <>
-                      <TooltipProvider delayDuration={10}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant={"secondary"}
-                              onClick={onViewProject}
-                            >
-                              <SiAirplayvideo className={iconClassName} />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom">
-                            <p>View projects</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                      <TooltipProvider delayDuration={10}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant={"secondary"}
-                              onClick={onPreViewProject}
-                            >
-                              <MdPreview className={iconClassName} />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom">
-                            <p>PreView projects</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                      <TooltipProvider delayDuration={10}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button variant={"secondary"} onClick={onShare}>
-                              <FaShareFromSquare className={iconClassName} />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom">
-                            <p>Share Project</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                      <TooltipProvider delayDuration={10}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant={"secondary"}
-                              onClick={onUploadServer}
-                            >
-                              <IoCloudUploadOutline className={iconClassName} />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom">
-                            <p>Upload file</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </>
-                  )}
                   <Button
                     variant={"destructive"}
                     onClick={() => {
@@ -163,14 +137,32 @@ const ProjectViewer = () => {
               </div>
             </CardTitle>
           </CardHeader>
-          <CardContent className="relative h-full w-full grid grid-cols-5 gap-2">
-            <ProjectContent
-              selectProject={selectProject}
-              setSelectProject={setSelectProject}
-            />
-            <div className="col-span-4">
-              <ProjectTable />
-            </div>
+          <CardContent className="relative h-full w-full ">
+            <ResizablePanelGroup
+              direction="horizontal"
+              className="relative h-full w-full overflow-hidden"
+            >
+              <ResizablePanel
+                defaultSize={15}
+                maxSize={25}
+                className="relative h-full p-2"
+              >
+                <ProjectContent
+                  selectProject={selectProject}
+                  setSelectProject={setSelectProject}
+                />
+              </ResizablePanel>
+              <ResizableHandle className="w-[4px]" />
+              <ResizablePanel defaultSize={85}>
+                {selectProject && (
+                  <ProjectTable
+                    selectProject={selectProject}
+                    onUploadServer={onUploadServer}
+                    onShare={onShare}
+                  />
+                )}
+              </ResizablePanel>
+            </ResizablePanelGroup>
           </CardContent>
         </Card>
       </div>
@@ -178,6 +170,7 @@ const ProjectViewer = () => {
         openNewProject={openNewProject}
         setOpenNewProject={setOpenNewProject}
       />
+      <ProgressUpload openNewModel={openNewModel} progress={progress} />
     </>
   );
 };

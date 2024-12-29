@@ -13,7 +13,7 @@ const ProjectContent: FC<Props> = ({selectProject, setSelectProject}) => {
   useSignals();
   return (
     <div
-      className="col-span-1 border-r-2 p-2"
+      className="h-full p-2"
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();

@@ -217,65 +217,6 @@ export class IfcStreamerComponent
    * @param properties - Optional properties for the new fragment group.
    * @returns The newly loaded fragment group.
    */
-  async loadFromLocal(
-    settings: OBF.StreamLoaderSettings,
-    groupBuffer: Uint8Array,
-    coordinate: boolean,
-    properties?: FRAG.IfcProperties
-  ) {
-    const {assets, geometries} = settings;
-    const fragments = this.components.get(OBC.FragmentsManager);
-    const group = fragments.load(groupBuffer, {coordinate, properties});
-    this.world.scene.three.add(group);
-    const {opaque, transparent} = group.geometryIDs;
-    for (const [geometryID, key] of opaque) {
-      const fragID = group.keyFragments.get(key);
-      if (fragID === undefined) {
-        throw new Error("Malformed fragments group!");
-      }
-      this.fragIDData.set(fragID, [group, geometryID, new Set()]);
-    }
-    for (const [geometryID, key] of transparent) {
-      const fragID = group.keyFragments.get(key);
-      if (fragID === undefined) {
-        throw new Error("Malformed fragments group!");
-      }
-      this.fragIDData.set(fragID, [group, Math.abs(geometryID), new Set()]);
-    }
-
-    this.culler.add(group.uuid, assets, geometries);
-    this.models[group.uuid] = {assets, geometries};
-    const instances: OBF.StreamedInstances = new Map();
-
-    for (const asset of assets) {
-      const id = asset.id;
-      for (const {transformation, geometryID, color} of asset.geometries) {
-        if (!instances.has(geometryID)) {
-          instances.set(geometryID, []);
-        }
-        const current = instances.get(geometryID);
-        if (!current) {
-          throw new Error("Malformed instances");
-        }
-        current.push({id, transformation, color});
-      }
-    }
-
-    this._geometryInstances[group.uuid] = instances;
-
-    this.culler.updateTransformations(group.uuid);
-    this.culler.needsUpdate = true;
-
-    return group;
-  }
-  /**
-   * Loads a new fragment group into the scene using streaming.
-   *
-   * @param settings - The settings for the new fragment group.
-   * @param coordinate - Whether to federate this model with the rest.
-   * @param properties - Optional properties for the new fragment group.
-   * @returns The newly loaded fragment group.
-   */
   async loadFromServer(
     settings: OBF.StreamLoaderSettings,
     groupBuffer: Uint8Array,
@@ -443,29 +384,16 @@ export class IfcStreamerComponent
     this.culler.needsUpdate = true;
   }
 
-  private async getGeometryFile(geometryFile: string, serverUrl?: string) {
-    if (!this.fromServer) {
-      const artifactModelData =
-        this.components.get(IfcTilerComponent).artifactModelData;
-      if (
-        !artifactModelData ||
-        artifactModelData.streamedGeometryFiles === undefined
-      )
-        return null;
-      const {streamedGeometryFiles} = artifactModelData;
-      return streamedGeometryFiles[geometryFile];
-    } else {
-      if (!serverUrl) return null;
-      try {
-        const res = await axios({
-          url: `${serverUrl}/${geometryFile}`,
-          method: "GET",
-          responseType: "arraybuffer",
-        });
-        return new Uint8Array(res.data);
-      } catch (error) {
-        return null;
-      }
+  private async getGeometryFile(geometryFile: string, serverUrl: string) {
+    try {
+      const res = await axios({
+        url: `${serverUrl}/${geometryFile}`,
+        method: "GET",
+        responseType: "arraybuffer",
+      });
+      return new Uint8Array(res.data);
+    } catch (error) {
+      return null;
     }
   }
 

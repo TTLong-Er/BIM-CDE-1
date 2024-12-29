@@ -1,6 +1,6 @@
 "use client";
 
-import React, {useState} from "react";
+import {ReactElement, useState} from "react";
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -13,16 +13,13 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import {ArrowUpDown, ChevronDown, MoreHorizontal} from "lucide-react";
+import {ArrowUpDown, ChevronDown, SquareDashedKanban, View} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {Checkbox} from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {Input} from "@/components/ui/input";
@@ -34,48 +31,52 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {IModel, IProject} from "@bim/types";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import ProjectButton, {IProjectButton} from "./ProjectButton";
+import {IoCloudUploadOutline} from "react-icons/io5";
+import {FaShareFromSquare} from "react-icons/fa6";
+import {useNavigate} from "react-router";
 
-const data: Payment[] = [
-  {
-    id: "m5gr84i9",
-    amount: 316,
-    status: "success",
-    email: "ken99@yahoo.com",
-  },
-  {
-    id: "3u1reuv4",
-    amount: 242,
-    status: "success",
-    email: "Abe45@gmail.com",
-  },
-  {
-    id: "derv1ws0",
-    amount: 837,
-    status: "processing",
-    email: "Monserrat44@gmail.com",
-  },
-  {
-    id: "5kma53ae",
-    amount: 874,
-    status: "success",
-    email: "Silas22@gmail.com",
-  },
-  {
-    id: "bhqecj4p",
-    amount: 721,
-    status: "failed",
-    email: "carmella@hotmail.com",
-  },
-];
-
-export type Payment = {
-  id: string;
-  amount: number;
-  status: "pending" | "processing" | "success" | "failed";
-  email: string;
+const RowViewer = ({
+  model,
+  icon,
+  tooltip,
+}: {
+  model: IModel;
+  icon: ReactElement;
+  tooltip: "bim" | "analyze";
+}) => {
+  const navigate = useNavigate();
+  const {id, projectId} = model;
+  const handleClick = () => {
+    const url = `/viewer/${tooltip}?projectId=${projectId}&modelId=${id}`;
+    navigate(url);
+  };
+  return (
+    <div className="relative w-full flex items-center justify-center">
+      <TooltipProvider delayDuration={10}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button className=" mx-auto" variant="ghost" onClick={handleClick}>
+              {icon}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>{tooltip}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
+  );
 };
 
-export const columns: ColumnDef<Payment>[] = [
+export const columns: ColumnDef<IModel>[] = [
   {
     id: "select",
     header: ({table}) => (
@@ -99,79 +100,137 @@ export const columns: ColumnDef<Payment>[] = [
     enableHiding: false,
   },
   {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({row}) => <div className="capitalize">{row.getValue("status")}</div>,
-  },
-  {
-    accessorKey: "email",
+    accessorKey: "name",
     header: ({column}) => {
       return (
         <Button
+          className="w-full"
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
-          Email
+          Name
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       );
     },
-    cell: ({row}) => <div className="lowercase">{row.getValue("email")}</div>,
+    cell: ({row}) => (
+      <div className="capitalize text-center">{row.getValue("name")}</div>
+    ),
   },
   {
-    accessorKey: "amount",
-    header: () => <div className="text-right">Amount</div>,
+    accessorKey: "status",
+    header: ({column}) => {
+      return (
+        <Button
+          className="w-full"
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Status
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      );
+    },
     cell: ({row}) => {
-      const amount = parseFloat(row.getValue("amount"));
-
-      // Format the amount as a dollar amount
-      const formatted = new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-      }).format(amount);
-
-      return <div className="text-right font-medium">{formatted}</div>;
+      const status = row.getValue("status");
+      if (!status) return null;
+      if (status === "success") {
+        return (
+          <p className=" font-bold py-2 px-4 rounded-lg text-center ">
+            Success
+          </p>
+        );
+      } else if (status === "processing") {
+        return (
+          <p className="text-white font-bold py-2 px-4 rounded-lg text-center bg-gradient-to-r from-blue-500 via-blue-400 to-blue-500 animate-pulse">
+            Processing...
+          </p>
+        );
+      } else {
+        return null;
+      }
     },
   },
   {
-    id: "actions",
-    enableHiding: false,
-    cell: ({row}) => {
-      const payment = row.original;
-
+    accessorKey: "createdAt",
+    header: ({column}) => {
       return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(payment.id)}
-            >
-              Copy payment ID
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>View customer</DropdownMenuItem>
-            <DropdownMenuItem>View payment details</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button
+          className="w-full"
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Create At
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      );
+    },
+    cell: ({row}) => {
+      const createdAt = row.getValue("createdAt") as string;
+      return (
+        <div className="lowercase text-center">
+          {new Date(createdAt).toLocaleString("en-US")}
+        </div>
       );
     },
   },
+  {
+    accessorKey: "viewer",
+    header: () => {
+      return (
+        <Button className="w-full" variant="ghost">
+          <View className="h-6 w-6" />
+        </Button>
+      );
+    },
+    cell: ({row}) => (
+      <RowViewer
+        model={row.original}
+        tooltip="bim"
+        icon={<View className="h-6 w-6" />}
+      />
+    ),
+  },
+  {
+    accessorKey: "analyze",
+    header: () => {
+      return (
+        <Button className="w-full" variant="ghost">
+          <SquareDashedKanban className="h-6 w-6" />
+        </Button>
+      );
+    },
+    cell: ({row}) => (
+      <RowViewer
+        model={row.original}
+        tooltip="analyze"
+        icon={<SquareDashedKanban className="h-6 w-6" />}
+      />
+    ),
+  },
 ];
+const iconClassName = "h-[20px] w-[20px]";
 
-const ProjectTable = () => {
+/**
+ *
+ * @param param0
+ * @returns
+ */
+const ProjectTable = ({
+  selectProject,
+  onUploadServer,
+  onShare,
+}: {
+  selectProject: IProject;
+  onUploadServer: () => void;
+  onShare: () => void;
+}) => {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = useState({});
-
   const table = useReactTable({
-    data,
+    data: selectProject.models,
     columns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
@@ -188,44 +247,68 @@ const ProjectTable = () => {
       rowSelection,
     },
   });
+  const list: IProjectButton[] = [
+    {
+      tooltip: "Upload file",
+      icon: <IoCloudUploadOutline className={iconClassName} />,
+      onClick: onUploadServer,
+    },
+    {
+      tooltip: "Shares",
+      icon: <FaShareFromSquare className={iconClassName} />,
+      onClick: onShare,
+    },
+  ];
 
   return (
-    <div className="w-full">
-      <div className="flex items-center py-4">
+    <div className="w-full p-2">
+      <div className="flex justify-between items-center py-4">
         <Input
-          placeholder="Filter emails..."
-          value={(table.getColumn("email")?.getFilterValue() as string) ?? ""}
+          placeholder="Filter names..."
+          value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
           onChange={(event) =>
-            table.getColumn("email")?.setFilterValue(event.target.value)
+            table.getColumn("name")?.setFilterValue(event.target.value)
           }
           className="max-w-sm"
         />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="ml-auto">
-              Columns <ChevronDown className="ml-2 h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {table
-              .getAllColumns()
-              .filter((column) => column.getCanHide())
-              .map((column) => {
-                return (
-                  <DropdownMenuCheckboxItem
-                    key={column.id}
-                    className="capitalize"
-                    checked={column.getIsVisible()}
-                    onCheckedChange={(value) =>
-                      column.toggleVisibility(!!value)
-                    }
-                  >
-                    {column.id}
-                  </DropdownMenuCheckboxItem>
-                );
-              })}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex justify-end gap-2">
+          <>
+            {list.map((btn: IProjectButton, index: number) => (
+              <ProjectButton
+                key={`${btn.tooltip}-${index}`}
+                tooltip={btn.tooltip}
+                icon={btn.icon}
+                onClick={btn.onClick}
+              />
+            ))}
+          </>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="ml-auto">
+                Columns <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {table
+                .getAllColumns()
+                .filter((column) => column.getCanHide())
+                .map((column) => {
+                  return (
+                    <DropdownMenuCheckboxItem
+                      key={column.id}
+                      className="capitalize"
+                      checked={column.getIsVisible()}
+                      onCheckedChange={(value) =>
+                        column.toggleVisibility(!!value)
+                      }
+                    >
+                      {column.id}
+                    </DropdownMenuCheckboxItem>
+                  );
+                })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
       <div className="rounded-md border">
         <Table>

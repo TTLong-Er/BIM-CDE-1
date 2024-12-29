@@ -7,6 +7,8 @@ import cookieParser from "cookie-parser";
 import morgan from "morgan";
 import {ErrorHandler} from "./config/ErrorHandler";
 import {dbConnect} from "./db";
+import {onConnectSocket} from "./socket";
+
 import route from "./route";
 
 // define clerk type
@@ -38,7 +40,9 @@ app.use(express.urlencoded({extended: false}));
 app.use("/api", route);
 app.use(ErrorHandler);
 dbConnect().then(() => {
-  app.listen(port, () => {
-    console.log(`Server is listening on port:${port}`);
-  });
+  onConnectSocket(
+    app.listen(port, () => {
+      console.log(`Server is listening on port:${port}`);
+    })
+  );
 });

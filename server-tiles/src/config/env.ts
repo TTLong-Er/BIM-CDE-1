@@ -19,6 +19,8 @@ const EnvSchema = z.object({
   CLERK_PUBLISHABLE_KEY: z.string(),
   MONGO_HOST: z.string(),
   MONGO_PORT: z.string(),
+  WEB_PUSH_PUBLIC: z.string(),
+  WEB_PUSH_PRIVATE: z.string(),
 });
 try {
   EnvSchema.parse(process.env);

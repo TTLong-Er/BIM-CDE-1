@@ -10,7 +10,6 @@
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "node",
     "resolveJsonModule": true,
-    "declaration": true,
     "allowJs": true,
   },
   "ts-node": {
@@ -23,5 +22,5 @@
   },
   "compileOnSave": true,
   "include": ["src",],
-  "exclude": ["node_modules","build","bim-fragment"]
+  "exclude": ["node_modules","dist"]
 }

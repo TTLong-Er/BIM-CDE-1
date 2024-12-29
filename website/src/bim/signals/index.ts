@@ -1,6 +1,5 @@
 import {disposeViewerConfig} from "./config";
 import {disposeViewerLoader} from "./loader";
-import {disposeProject} from "./project";
 import {disposeTreeViewer} from "./tree";
 
 export * from "./config";
@@ -13,5 +12,4 @@ export function disposeViewerSignals() {
   disposeViewerLoader();
   disposeViewerConfig();
   disposeTreeViewer();
-  disposeProject();
 }

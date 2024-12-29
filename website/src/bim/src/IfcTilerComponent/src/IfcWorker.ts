@@ -12,6 +12,7 @@ import {
 } from "./types";
 import {IfcPropertiesTiler} from "./IfcPropertiesTiler";
 import {IfcGeometryTiler} from "./IfcGeometryTiler";
+import {ISpatialStructure} from "@bim/types";
 
 const wasm = {
   path: "https://unpkg.com/web-ifc@0.0.57/",

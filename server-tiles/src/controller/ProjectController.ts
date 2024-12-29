@@ -7,23 +7,26 @@ import {eq} from "drizzle-orm";
 import {WithAuthProp} from "@clerk/clerk-sdk-node";
 import {awsClient} from "../config/AWS3";
 import {v4 as uuidv4} from "uuid";
+import webpush from "web-push";
 
 export const getUserInfo = async (userId: string) => {
   return await db.query.projects.findMany({
     where: eq(projects.userId, userId),
     with: {
-      models: {
-        with: {
-          meta: true,
-        },
-      },
+      models: true,
     },
   });
 };
-
+/**
+ *
+ */
 export class ProjectController extends BaseController<
   typeof projects.$inferInsert
 > {
+  /**
+   *
+   * @returns
+   */
   private async createBucket() {
     try {
       const projectId = uuidv4();
@@ -52,13 +55,20 @@ export class ProjectController extends BaseController<
       return null;
     }
   }
+  /**
+   *
+   * @param req
+   * @param res
+   * @param next
+   * @returns
+   */
   create = async (
     req: WithAuthProp<Request>,
     res: Response,
     next: NextFunction
   ) => {
     try {
-      const {sessionId, userId} = req.auth;
+      const {userId} = req.auth;
 
       const {projectName, address} = req.body;
 
@@ -76,11 +86,7 @@ export class ProjectController extends BaseController<
 
       const userProjects = await getUserInfo(userId);
 
-      await redisClient.set(
-        sessionId,
-        JSON.stringify(userProjects),
-        configRedis
-      );
+      await redisClient.set(userId, JSON.stringify(userProjects), configRedis);
 
       res.status(200).json({projects: userProjects});
     } catch (error: any) {
@@ -88,22 +94,29 @@ export class ProjectController extends BaseController<
       next(error);
     }
   };
+  /**
+   *
+   * @param req
+   * @param res
+   * @param next
+   * @returns
+   */
   read = async (
     req: WithAuthProp<Request>,
     res: Response,
     next: NextFunction
   ) => {
     try {
-      const {sessionId, userId} = req.auth;
-      if (!sessionId || !userId) {
+      const {userId} = req.auth;
+      if (!userId) {
         next({statusCode: 403, message: "Unauthorized!"});
         return;
       }
-      const data = await redisClient.get(sessionId!);
+      const data = await redisClient.get(userId);
       if (!data) {
         const userProjects = await getUserInfo(userId);
         await redisClient.set(
-          sessionId,
+          userId,
           JSON.stringify(userProjects),
           configRedis
         );
@@ -112,22 +125,47 @@ export class ProjectController extends BaseController<
       }
       res.status(200).json({projects: JSON.parse(data)});
     } catch (error) {
+      console.log(error);
       next(error);
     }
   };
+  /**
+   *
+   * @param req
+   * @param res
+   * @param next
+   */
   update = async (req: Request, res: Response, next: NextFunction) => {};
+  /**
+   *
+   * @param req
+   * @param res
+   * @param next
+   */
   delete = async (req: Request, res: Response, next: NextFunction) => {
     try {
     } catch (error: any) {
       next(error);
     }
   };
+  /**
+   *
+   * @param req
+   * @param res
+   * @param next
+   */
   bulkInsert = async (req: Request, res: Response, next: NextFunction) => {
     try {
     } catch (error: any) {
       next(error);
     }
   };
+  /**
+   *
+   * @param req
+   * @param res
+   * @param next
+   */
   findById = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const {id} = req.params;
@@ -138,6 +176,12 @@ export class ProjectController extends BaseController<
       next(error);
     }
   };
+  /**
+   *
+   * @param req
+   * @param res
+   * @param next
+   */
   findByDynamicQuery = async (
     req: Request,
     res: Response,

@@ -3,10 +3,12 @@ import express, {Express, Request, Response, NextFunction} from "express";
 import cors from "cors";
 import bodyParser from "body-parser";
 import morgan from "morgan";
-import {Parser} from "./parser";
+import env from "./config/env";
+import route from "./model";
+import fileUpload from "express-fileupload";
 
 const app: Express = express();
-const port = process.env.PORT;
+const port = env.PORT || 8083;
 app.set("port", port);
 morgan.token("ram", function (req, res) {
   const freeMemory = os.freemem();
@@ -24,8 +26,16 @@ app.use(bodyParser.urlencoded({extended: false, limit: "50mb"}));
 app.use(bodyParser.json({limit: "1024mb"}));
 app.use(express.urlencoded({extended: false}));
 app.use(express.json());
-
-app.use("/api/v1/derivative", Parser.ifcParser);
+app.use(
+  fileUpload({
+    limits: {fileSize: 4 * 1024 * 1024 * 1024},
+    abortOnLimit: true,
+    useTempFiles: true,
+    tempFileDir: "./tmp/",
+    uploadTimeout: 60000,
+  })
+);
+app.use("/api/v1/models", route);
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   const errStatus = err.statusCode || 500;
   const errMsg = err.message;
@@ -35,7 +45,6 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
     stack: process.env.NODE_ENV === "development" ? err.stack : {},
   });
 });
-
 app.listen(port, () => {
   console.log(`Server is listening on port:${port}`);
 });

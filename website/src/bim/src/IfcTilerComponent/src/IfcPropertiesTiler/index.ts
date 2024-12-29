@@ -2,6 +2,7 @@ import * as WEBIFC from "web-ifc";
 import {PropertiesStreamingSettings} from "./PropertiesStreamingSettings";
 import {IfcRelationsIndexer} from "../IfcRelationsIndexer";
 import {GeometryTypes} from "./ifc-geometry-types";
+import {ISpatialStructure} from "@bim/types";
 
 /**
  * A component that converts the properties of an IFC file to tiles. It uses the Web-IFC library to read and process the IFC data. 📕 [Tutorial](https://docs.thatopen.com/Tutorials/Components/Core/IfcPropertiesTiler). 📘 [API](https://docs.thatopen.com/api/@thatopen/components/classes/IfcPropertiesTiler).
@@ -149,10 +150,8 @@ export class IfcPropertiesTiler {
     this.onProgress(1);
 
     // Stream indices
-
     const rels = await this.relations.processFromWebIfc(this.webIfc, 0);
     this.onIndicesStreamed(rels);
-
     // console.log(finalCount);
   }
 }

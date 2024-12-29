@@ -155,6 +155,7 @@ export class IfcRelationsIndexer {
           modelID,
           relExpressIDs.get(i)
         );
+        if (!Array.isArray(relAttrs)) continue;
         this.indexRelations(relationsMap, relAttrs, related, relating);
       }
     }
