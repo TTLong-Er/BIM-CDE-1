@@ -14,8 +14,6 @@ const configAWS = {
   apiVersions: {
     s3: "2006-03-01",
   },
-
-  logger: process.stdout,
 };
 //@ts-ignore
 AWS.config.update(configAWS);

@@ -15,6 +15,7 @@ const ProjectItem: FC<Props> = ({project, selectProject, setSelectProject}) => {
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
+        console.log(project);
         setSelectProject(project);
       }}
     >

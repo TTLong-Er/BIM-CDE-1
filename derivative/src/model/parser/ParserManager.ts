@@ -1,15 +1,10 @@
 import {Worker} from "worker_threads";
 import {resolve} from "path";
 import * as fs from "fs";
-import * as pako from "pako";
-import axios, {AxiosResponse} from "axios";
-import env from "../../config/env";
 import {IInputStream, IWorkerAction} from "./types";
-import {awsClient, uploadLarge, uploadSmall} from "../../config/AWS3";
+import axios, {AxiosResponse} from "axios";
 
 const suffix = process.env.NODE_ENV === "development" ? ".ts" : ".js";
-const SERVER_TILES_API = env.SERVER_TILES_API;
-const PROPERTY_API = env.PROPERTY_API;
 const workerPath = "IfcWorker";
 
 export class ParserManager {
@@ -37,93 +32,7 @@ export class ParserManager {
       payload: data,
     } as IWorkerAction);
 
-    worker.on("message", async (data: IWorkerAction) => {
-      const {
-        action,
-        input: {tempFilePath, userId, projectId, modelId},
-        payload,
-      } = data;
-      if (action === "onError") {
-        await this.updateModel({projectId, modelId, userId}, payload);
-      } else if (action === "onSuccess") {
-        const {
-          propertyStorageFiles,
-          propertyServerData,
-          assets,
-          geometries,
-          groupBuffer,
-          streamedGeometryFiles,
-          modelTree,
-        } = payload;
-        const settings = {assets, geometries};
-
-        try {
-          await Promise.all([
-            await uploadLarge(
-              awsClient,
-              pako.deflate(Buffer.from(JSON.stringify(modelTree))),
-              projectId,
-              `${modelId}/modelTree`,
-              "application/octet-stream"
-            ),
-            await uploadSmall(
-              awsClient,
-              pako.deflate(Buffer.from(JSON.stringify(settings))),
-              projectId,
-              `${modelId}/Settings`,
-              "application/octet-stream"
-            ),
-            await uploadSmall(
-              awsClient,
-              groupBuffer,
-              projectId,
-              `${modelId}/fragmentsGroup.frag`,
-              "application/octet-stream"
-            ),
-            ...propertyStorageFiles.map(
-              async ({name, bits}: {name: string; bits: any}) => {
-                if (typeof bits === "string") {
-                  await uploadSmall(
-                    awsClient,
-                    pako.deflate(Buffer.from(bits)),
-                    projectId,
-                    `${modelId}/${name}`,
-                    "application/octet-stream"
-                  );
-                } else {
-                  await uploadSmall(
-                    awsClient,
-                    pako.deflate(Buffer.from(JSON.stringify(bits))),
-                    projectId,
-                    `${modelId}/${name}`,
-                    "application/octet-stream"
-                  );
-                }
-              }
-            ),
-            ...Object.keys(streamedGeometryFiles).map(
-              async (fileName: string) => {
-                await uploadSmall(
-                  awsClient,
-                  streamedGeometryFiles[fileName] as Uint8Array,
-                  projectId,
-                  `${modelId}/${fileName}`,
-                  "application/octet-stream"
-                );
-              }
-            ),
-            await this.insertInChunks(propertyServerData, 10),
-            await this.updateModel(
-              {projectId, modelId, userId},
-              "onSuccess",
-              false
-            ),
-          ]);
-        } catch (error: any) {
-          console.log(error);
-          await this.updateModel({projectId, modelId, userId}, error.message);
-        }
-      }
+    worker.on("message", async (_data: IWorkerAction) => {
       this.currentModelIndex--;
 
       const first = this.listWaiting[0];
@@ -150,7 +59,7 @@ export class ParserManager {
    */
 
   async streamFile(input: IInputStream) {
-    const {tempFilePath, projectId, modelId, name, userId} = input;
+    const {tempFilePath} = input;
     // check file exist
     const existedPath = fs.existsSync(tempFilePath);
 
@@ -170,15 +79,6 @@ export class ParserManager {
 
         this.currentModelIndex++;
 
-        await this.createModel({projectId, modelId, name, userId});
-        // upload ifc file
-        await uploadLarge(
-          awsClient,
-          data,
-          projectId,
-          `${modelId}/${name}`,
-          "application/octet-stream"
-        );
         // create model in server
       }
     } catch (error: any) {
@@ -210,63 +110,5 @@ export class ParserManager {
     } catch (err) {
       console.error(err);
     }
-  }
-  /**
-   *
-   * @param token
-   * @param data
-   * @returns
-   */
-  private createModel = async (data: {
-    projectId: string;
-    modelId: string;
-    name: string;
-    userId: string;
-  }): Promise<AxiosResponse<any>> => {
-    return await axios({
-      url: `${SERVER_TILES_API}/v1/models`,
-      method: "POST",
-      responseType: "json",
-      data,
-    });
-  };
-  /**
-   *
-   * @param token
-   * @param data
-   * @returns
-   */
-  private updateModel = async (
-    data: {
-      projectId: string;
-      modelId: string;
-      userId: string;
-    },
-    message: string,
-    isDelete = true
-  ): Promise<AxiosResponse<any>> => {
-    const method = isDelete ? "DELETE" : "PUT";
-    return await axios({
-      url: `${SERVER_TILES_API}/v1/models?message=${message}`,
-      method,
-      responseType: "json",
-      data,
-    });
-  };
-  private async insertInChunks(data: any[], chunkSize: number) {
-    const promises = [];
-    const setProperty = async (data: any[]) => {
-      return await axios({
-        url: `${PROPERTY_API}/v1/models`,
-        method: "POST",
-        responseType: "json",
-        data,
-      });
-    };
-    for (let i = 0; i < data.length; i += chunkSize) {
-      const chunk = data.slice(i, i + chunkSize);
-      promises.push(setProperty(chunk));
-    }
-    await Promise.all(promises);
   }
 }

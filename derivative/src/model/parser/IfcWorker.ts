@@ -1,7 +1,8 @@
 import {parentPort} from "worker_threads";
 import * as WEBIFC from "web-ifc";
 import {LogLevel} from "web-ifc";
-
+import * as pako from "pako";
+import axios, {AxiosResponse} from "axios";
 import {
   IAssetStreamed,
   IGeometryStreamed,
@@ -14,6 +15,11 @@ import {
 import {IfcPropertiesTiler} from "./IfcPropertiesTiler";
 import {IfcGeometryTiler} from "./IfcGeometryTiler";
 import {IfcGeometryJson} from "./IfcGeometryJson";
+import {awsClient, uploadLarge, uploadSmall} from "../../config/AWS3";
+import env from "../../config/env";
+
+const SERVER_TILES_API = env.SERVER_TILES_API;
+const PROPERTY_API = env.PROPERTY_API;
 
 const wasm = {
   path: "./",
@@ -36,7 +42,89 @@ const onError = (input: IInputStream, payload: string) => {
     payload,
   } as IWorkerAction);
 };
+/**
+ *
+ * @param token
+ * @param data
+ * @returns
+ */
+const createModel = async (data: {
+  projectId: string;
+  modelId: string;
+  name: string;
+  userId: string;
+}): Promise<AxiosResponse<any>> => {
+  return await axios({
+    url: `${SERVER_TILES_API}/v1/models`,
+    method: "POST",
+    responseType: "json",
+    data,
+  });
+};
+/**
+ *
+ * @param token
+ * @param data
+ * @returns
+ */
+const storageProperty = async (
+  data: {
+    modelId: string;
+    name: string;
+    data: {[id: number]: any};
+  }[]
+): Promise<AxiosResponse<any>> => {
+  return await axios({
+    url: `${PROPERTY_API}/v1/models`,
+    method: "POST",
+    responseType: "json",
+    data,
+  });
+};
 
+/**
+ *
+ * @param token
+ * @param data
+ * @returns
+ */
+const updateModel = async (
+  data: {
+    projectId: string;
+    modelId: string;
+    userId: string;
+  },
+  message: string,
+  isDelete = true
+): Promise<AxiosResponse<any>> => {
+  const method = isDelete ? "DELETE" : "PUT";
+  return await axios({
+    url: `${SERVER_TILES_API}/v1/models?message=${message}`,
+    method,
+    responseType: "json",
+    data,
+  });
+};
+const insertInChunks = async (
+  data: {
+    modelId: string;
+    name: string;
+    data: {[id: number]: any};
+  }[],
+  chunkSize: number
+) => {
+  const promises = [];
+
+  try {
+    for (let i = 0; i < data.length; i += chunkSize) {
+      const chunk = data.slice(i, i + chunkSize);
+      promises.push(storageProperty(chunk));
+    }
+    await Promise.all(promises);
+  } catch (error) {
+    console.log(`Error property`);
+  }
+};
 parentPort?.on("message", async (data: IWorkerAction) => {
   const {action, payload, input} = data;
   if (action !== "onLoad") return;
@@ -50,9 +138,26 @@ parentPort?.on("message", async (data: IWorkerAction) => {
     webIfc.SetLogLevel(LogLevel);
     webIfc.OpenModel(payload as Uint8Array, setting);
 
-    const {modelId} = input;
-
+    const {projectId, modelId, name, userId} = input;
+    // we tell managerServer create a model
+    await createModel({projectId, modelId, name, userId});
+    // upload ifc file in cloud with pako compress
+    await uploadLarge(
+      awsClient,
+      payload,
+      projectId,
+      `${modelId}/${name}`,
+      "application/octet-stream"
+    );
     const modelTree = await new IfcGeometryJson(webIfc).streamFromBuffer();
+    // upload modelTree in cloud with pako compress
+    await uploadLarge(
+      awsClient,
+      pako.deflate(Buffer.from(JSON.stringify(modelTree))),
+      projectId,
+      `${modelId}/modelTree`,
+      "application/octet-stream"
+    );
 
     const assets: StreamedAsset[] = [];
     const geometries: StreamedGeometries = {};
@@ -89,19 +194,67 @@ parentPort?.on("message", async (data: IWorkerAction) => {
         groupBuffer === null
       )
         return;
-
+      const settings = {assets, geometries};
+      try {
+        await Promise.all([
+          // setting will decided which element(fragment) will loaded or visibility
+          await uploadSmall(
+            awsClient,
+            pako.deflate(Buffer.from(JSON.stringify(settings))),
+            projectId,
+            `${modelId}/Settings`,
+            "application/octet-stream"
+          ),
+          // fragmentGroup will decided group ( data, keyFragments)
+          await uploadSmall(
+            awsClient,
+            groupBuffer,
+            projectId,
+            `${modelId}/fragmentsGroup.frag`,
+            "application/octet-stream"
+          ),
+          ...propertyStorageFiles.map(
+            async ({name, bits}: {name: string; bits: any}) => {
+              if (typeof bits === "string") {
+                await uploadSmall(
+                  awsClient,
+                  pako.deflate(Buffer.from(bits)),
+                  projectId,
+                  `${modelId}/${name}`,
+                  "application/octet-stream"
+                );
+              } else {
+                await uploadSmall(
+                  awsClient,
+                  pako.deflate(Buffer.from(JSON.stringify(bits))),
+                  projectId,
+                  `${modelId}/${name}`,
+                  "application/octet-stream"
+                );
+              }
+            }
+          ),
+          ...Object.keys(streamedGeometryFiles).map(
+            async (fileName: string) => {
+              await uploadSmall(
+                awsClient,
+                streamedGeometryFiles[fileName] as Uint8Array,
+                projectId,
+                `${modelId}/${fileName}`,
+                "application/octet-stream"
+              );
+            }
+          ),
+          await insertInChunks(propertyServerData, 50),
+          await updateModel({projectId, modelId, userId}, "onSuccess", false),
+        ]);
+      } catch (error: any) {
+        console.log(error);
+        await updateModel({projectId, modelId, userId}, error.message);
+      }
       parentPort?.postMessage({
         action: "onSuccess",
         input,
-        payload: {
-          propertyStorageFiles,
-          propertyServerData,
-          assets,
-          geometries,
-          groupBuffer,
-          streamedGeometryFiles,
-          modelTree,
-        },
       } as IWorkerAction);
       webIfc.CloseModel(0);
       webIfc.Dispose();
