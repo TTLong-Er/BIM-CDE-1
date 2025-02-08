@@ -23,8 +23,7 @@ import {
 } from "@bim/signals";
 
 import * as BUI from "@thatopen/ui";
-import {useAuth} from "@clerk/clerk-react";
-import {setNotify} from "@components/Notify/baseNotify";
+
 /**
  *
  * @returns
@@ -54,7 +53,7 @@ const BimViewer = () => {
 
     BUI.Manager.init();
     const model = new BimModel(containerRef.current);
-    containerRef.current.appendChild(model.selectionPanel);
+
     bimRouteSignal.value = true;
     (async () => {
       await model.loadModelFromServer(modelId, projectId);
@@ -66,7 +65,7 @@ const BimViewer = () => {
       model?.dispose();
       setBimModel(null);
     };
-  }, [modelId, projectId]);
+  }, []);
 
   const onResize = () => {
     if (!bimModel) return;

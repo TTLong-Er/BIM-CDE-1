@@ -24,6 +24,7 @@ import {
 import {Fragment} from "@thatopen/fragments";
 import * as BUI from "@thatopen/ui";
 import selection from "./Selection";
+import {IfcStreamerWorker} from "./src/IfcStreamerWorker";
 /**
  *
  */
@@ -159,8 +160,11 @@ export class BimModel implements OBC.Disposable {
     const ifcStreamerComponent = this.components.get(IfcStreamerComponent);
     ifcStreamerComponent.enabled = true;
     ifcStreamerComponent.world = world;
-    ifcStreamerComponent.setupEvent = false;
-    ifcStreamerComponent.setupEvent = true;
+
+    /** ====== IfcStreamerWorker ======= **/
+    const ifcStreamerWorker = this.components.get(IfcStreamerWorker);
+    ifcStreamerWorker.enabled = true;
+    ifcStreamerWorker.world = world;
 
     world.camera.controls.restThreshold = 0.25;
 
@@ -177,14 +181,12 @@ export class BimModel implements OBC.Disposable {
       }
       spinnerSignal.value = false;
     });
-    ifcStreamerComponent.onFragmentsLoaded.add(
-      async (fragments: Fragment[]) => {
-        for (const {mesh} of fragments) {
-          mesh.castShadow = true;
-          mesh.receiveShadow = true;
-        }
+    ifcStreamerWorker.onFragmentsLoaded.add(async (fragments: Fragment[]) => {
+      for (const {mesh} of fragments) {
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
       }
-    );
+    });
     fragments.onFragmentsDisposed.add(({fragmentIDs}) => {
       for (const fragmentID of fragmentIDs) {
         const mesh = [...world.meshes].find((mesh) => mesh.uuid === fragmentID);
@@ -194,7 +196,8 @@ export class BimModel implements OBC.Disposable {
       }
     });
     this.selectionPanel = selection(this.components);
-    this.selectionPanel.className = "absolute top-3 left-3 z-10 bg-black";
+    this.selectionPanel.className = "absolute top-3 right-3 z-10 bg-black";
+
     effect(() => {
       this.mapBox = mapBoxSignal.value;
     });

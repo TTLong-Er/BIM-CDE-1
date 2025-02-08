@@ -9,6 +9,7 @@ import {propertyUrl} from "@api/core";
 import axios from "axios";
 import {spinnerSignal} from "@bim/signals";
 import * as fflate from "fflate";
+import {IfcStreamerWorker} from "../IfcStreamerWorker";
 
 /**
  *
@@ -44,7 +45,7 @@ export class IfcTilerComponent extends OBC.Component implements OBC.Disposable {
   streamFromServer = async (modelId: string, projectId: string) => {
     try {
       spinnerSignal.value = true;
-      const customIfcStreamer = this.components.get(IfcStreamerComponent);
+      const customIfcStreamer = this.components.get(IfcStreamerWorker);
       if (!customIfcStreamer)
         throw new Error("customIfcStreamer is not initialized!");
       const serverUrl = `${this.aws3Host}/${projectId}/${modelId}`;
@@ -95,20 +96,26 @@ export class IfcTilerComponent extends OBC.Component implements OBC.Disposable {
       const decompressedProperty = fflate.decompressSync(
         new Uint8Array(propertyRaw.data)
       );
+
       const property = JSON.parse(fflate.strFromU8(decompressedProperty));
+
       const {ids, types, indexesFile} = property;
+
       const decompressedPropertyIndexes = fflate.decompressSync(
         new Uint8Array(propertyIndexesRaw.data)
       );
+
       const propertyIndexes = JSON.parse(
         fflate.strFromU8(decompressedPropertyIndexes)
       );
+
       const properties = {
         ids,
         types,
         indexesFile,
         relationsMap: this.getRelationsMapFromJSON(propertyIndexes),
       } as StreamPropertiesSettings;
+
       await customIfcStreamer.loadFromServer(
         setting,
         group,

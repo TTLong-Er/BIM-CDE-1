@@ -8,7 +8,7 @@ services:
     # volumes:
     #   - redis_data:/data
   mongo:
-    image: mongo:latest
+    image: bitnami/mongodb:7.0
     ports:
       - ${MONGO_PORT}:${MONGO_PORT}
     restart: unless-stopped

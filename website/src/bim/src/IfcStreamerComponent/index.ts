@@ -3,7 +3,6 @@ import * as FRAG from "@thatopen/fragments";
 import * as OBC from "@thatopen/components";
 import * as OBF from "@thatopen/components-front";
 import axios from "axios";
-import {IfcTilerComponent} from "../IfcTilerComponent";
 import {GeometryCullerRenderer} from "./src";
 import {StreamSerializer} from "../streamed-geometries";
 export interface StreamPropertiesSettings {
@@ -137,6 +136,8 @@ export class IfcStreamerComponent
         this.setMeshVisibility(toHide, false);
       }
     );
+    this.setupEvent = false;
+    this.setupEvent = true;
   }
 
   /**

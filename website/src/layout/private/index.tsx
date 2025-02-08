@@ -31,6 +31,7 @@ const PrivateLayout = () => {
         setNotify(error.message, false);
       }
     })();
+    console.log(isSignedIn);
   }, [getToken, isSignedIn]);
   return (
     <div className="relative h-full w-full  flex flex-col">

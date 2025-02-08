@@ -67,7 +67,7 @@ const createModel = async (data: {
  * @param data
  * @returns
  */
-const storageProperty = async (
+const storageServerProperty = async (
   data: {
     modelId: string;
     name: string;
@@ -105,6 +105,11 @@ const updateModel = async (
     data,
   });
 };
+/**
+ *
+ * @param data
+ * @param chunkSize
+ */
 const insertInChunks = async (
   data: {
     modelId: string;
@@ -118,13 +123,16 @@ const insertInChunks = async (
   try {
     for (let i = 0; i < data.length; i += chunkSize) {
       const chunk = data.slice(i, i + chunkSize);
-      promises.push(storageProperty(chunk));
+      promises.push(storageServerProperty(chunk));
     }
     await Promise.all(promises);
   } catch (error) {
     console.log(`Error property`);
   }
 };
+/**
+ *
+ */
 parentPort?.on("message", async (data: IWorkerAction) => {
   const {action, payload, input} = data;
   if (action !== "onLoad") return;
@@ -245,7 +253,15 @@ parentPort?.on("message", async (data: IWorkerAction) => {
               );
             }
           ),
-          await insertInChunks(propertyServerData, 50),
+          ...propertyServerData.map(async ({modelId, name, data}) => {
+            await uploadSmall(
+              awsClient,
+              Buffer.from(JSON.stringify(data)),
+              projectId,
+              `${modelId}/${name}`,
+              "application/json"
+            );
+          }),
           await updateModel({projectId, modelId, userId}, "onSuccess", false),
         ]);
       } catch (error: any) {
@@ -296,7 +312,7 @@ parentPort?.on("message", async (data: IWorkerAction) => {
       });
       onSuccess();
     };
-    const onPropertiesStreamed = (payload: {
+    const onPropertiesStreamed = async (payload: {
       type: number;
       data: {[id: number]: any};
     }) => {
