@@ -73,13 +73,22 @@ const storageServerProperty = async (
     name: string;
     data: {[id: number]: any};
   }[]
-): Promise<AxiosResponse<any>> => {
-  return await axios({
-    url: `${PROPERTY_API}/v1/models`,
-    method: "POST",
-    responseType: "json",
-    data,
-  });
+) => {
+  const url = `${PROPERTY_API}/v1/models`;
+
+  try {
+    await axios.post(url, data, {
+      headers: {"Content-Type": "application/json"},
+    });
+  } catch (error: any) {
+    if (error.response) {
+      console.error(
+        "❌ Server Response:",
+        error.response.status,
+        error.response.data
+      );
+    }
+  }
 };
 
 /**
@@ -253,15 +262,16 @@ parentPort?.on("message", async (data: IWorkerAction) => {
               );
             }
           ),
-          ...propertyServerData.map(async ({modelId, name, data}) => {
-            await uploadSmall(
-              awsClient,
-              Buffer.from(JSON.stringify(data)),
-              projectId,
-              `${modelId}/${name}`,
-              "application/json"
-            );
-          }),
+          // ...propertyServerData.map(async ({modelId, name, data}) => {
+          //   await uploadSmall(
+          //     awsClient,
+          //     Buffer.from(JSON.stringify(data)),
+          //     projectId,
+          //     `${modelId}/${name}`,
+          //     "application/json"
+          //   );
+          // } ),
+          await insertInChunks(propertyServerData, 50),
           await updateModel({projectId, modelId, userId}, "onSuccess", false),
         ]);
       } catch (error: any) {

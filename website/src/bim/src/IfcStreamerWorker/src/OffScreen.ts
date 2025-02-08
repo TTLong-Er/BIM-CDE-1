@@ -461,7 +461,6 @@ export class OffScreen {
     const modelID = this._indexModelID.get(geometry.modelIndex) as string;
 
     const lostTime = now - geometry.time;
-    if (lostTime > this.maxLostTime) return;
 
     if (lostTime > this.maxHiddenTime) {
       // This geometry was lost for a while - hide it

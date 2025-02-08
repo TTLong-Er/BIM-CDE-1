@@ -49,7 +49,8 @@ export class IfcTilerComponent extends OBC.Component implements OBC.Disposable {
       if (!customIfcStreamer)
         throw new Error("customIfcStreamer is not initialized!");
       const serverUrl = `${this.aws3Host}/${projectId}/${modelId}`;
-      const baseUrl = `${this.aws3Host}/${projectId}/${modelId}/`;
+      const baseUrl = `${propertyUrl}/${modelId}/properties/`;
+      console.log(propertyUrl);
       customIfcStreamer.fromServer = true;
 
       const [
