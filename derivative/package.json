@@ -6,6 +6,7 @@
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
         "dev": "nodemon",
+        "azu": "node --env-file=.env  --no-warnings=ExperimentalWarning --require ts-node/register --loader ts-node/esm src/test.ts",
         "start": "node --env-file=.env dist/server.js",
         "build": "npx tsc -p ."
     },
@@ -27,6 +28,8 @@
         "typescript": "^5.3.3"
     },
     "dependencies": {
+        "@azure/identity": "^4.6.0",
+        "@azure/storage-blob": "^12.26.0",
         "@thatopen/fragments": "2.2.0",
         "aws-sdk": "^2.1691.0",
         "axios": "^1.7.7",

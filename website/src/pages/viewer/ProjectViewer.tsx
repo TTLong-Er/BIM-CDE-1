@@ -99,7 +99,6 @@ const ProjectViewer = () => {
         return project;
       } else return pro;
     }) as IProject[];
-    setSelectProject(projectSignal.value[0] ?? null);
   };
   /**
    *

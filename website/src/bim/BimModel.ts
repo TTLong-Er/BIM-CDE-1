@@ -197,10 +197,10 @@ export class BimModel implements OBC.Disposable {
     });
     this.selectionPanel = selection(this.components);
     this.selectionPanel.className = "absolute top-3 right-3 z-10 bg-black";
-    if (import.meta.env.DEV) {
-      this.container.appendChild(this.selectionPanel);
-      this.container.appendChild(ifcStreamerWorker.dockingPanel);
-    }
+    this.container.appendChild(this.selectionPanel);
+    // if (import.meta.env.DEV) {
+    //   this.container.appendChild(ifcStreamerWorker.dockingPanel);
+    // }
     effect(() => {
       this.mapBox = mapBoxSignal.value;
     });
