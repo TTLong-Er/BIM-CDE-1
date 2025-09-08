@@ -5,7 +5,8 @@ import {models} from "./models";
 /**
  *
  */
-export const bcf = pgTable("bcf", {
+export const bcf = pgTable("bcf",
+  {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   modelId: uuid("model_id").references(() => models.id),

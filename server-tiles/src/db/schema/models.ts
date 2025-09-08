@@ -5,7 +5,8 @@ import {projects} from "./projects";
 /**
  *
  */
-export const models = pgTable("models", {
+export const models = pgTable("models", 
+  {
   id: uuid("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),

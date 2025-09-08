@@ -6,8 +6,7 @@ import {models} from "./models";
 /**
  *
  */
-export const projects = pgTable(
-  "projects",
+export const projects = pgTable("projects",
   {
     id: uuid("id")
       .primaryKey()
